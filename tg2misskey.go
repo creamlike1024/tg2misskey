@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -24,7 +25,7 @@ type View struct {
 
 func main() {
 	godotenv.Load("config.env")
-	//misskey
+	// misskey
 	client, err := mi.NewClientWithOptions(mi.WithSimpleConfig(os.Getenv("MISSKEY_URL"), os.Getenv("MISSKEY_TOKEN")))
 	if err != nil {
 		log.Fatal(err)
@@ -54,7 +55,7 @@ func main() {
 		createFolder(client, os.Getenv("UPLOAD_FOLDER"))
 	}
 
-	//tgbot
+	// tgbot
 	bot, err := tgbotapi.NewBotAPI(os.Getenv("TELEGRAM_BOT_TOKEN"))
 	if err != nil {
 		log.Panic(err)
@@ -80,25 +81,31 @@ func main() {
 				}
 			}
 			if len(updatesChannel) == 0 {
+				addFootInfo(&msg, update.Message)
 				sendWithAttachment(client, v, &msg, &fileIDs)
 			}
 		} else if update.Message.Video != nil {
 			fillMsgAndFileIDs(client, &fileIDs, &msg, update.Message.Caption, ignoreError(bot.GetFileDirectURL(update.Message.Video.FileID)).(string))
 			if len(updatesChannel) == 0 {
+				addFootInfo(&msg, update.Message)
 				sendWithAttachment(client, v, &msg, &fileIDs)
 			}
 		} else if update.Message.Audio != nil {
 			fillMsgAndFileIDs(client, &fileIDs, &msg, update.Message.Caption, ignoreError(bot.GetFileDirectURL(update.Message.Audio.FileID)).(string))
 			if len(updatesChannel) == 0 {
+				addFootInfo(&msg, update.Message)
 				sendWithAttachment(client, v, &msg, &fileIDs)
 			}
 		} else if update.Message.Document != nil {
 			fillMsgAndFileIDs(client, &fileIDs, &msg, update.Message.Caption, ignoreError(bot.GetFileDirectURL(update.Message.Document.FileID)).(string))
 			if len(updatesChannel) == 0 {
+				addFootInfo(&msg, update.Message)
 				sendWithAttachment(client, v, &msg, &fileIDs)
 			}
 		} else {
-			sendMiNote(client, v, update.Message.Text, nil)
+			msg = update.Message.Text
+			addFootInfo(&msg, update.Message)
+			sendMiNote(client, v, &msg, nil)
 		}
 	}
 }
@@ -107,13 +114,17 @@ func ignoreError(val interface{}, err error) interface{} {
 	return val
 }
 
-func addFootInfo(msg string) string {
-	return msg + "\n\n" + os.Getenv("FOOT_INFO")
+func addFootInfo(msg *string, tgMsg *tgbotapi.Message) {
+	*msg += "\n\n"
+	if tgMsg.ForwardFromChat != nil {
+		*msg += fmt.Sprintf("Forwarded from Telegram Channel \"%s\" `@%s`\n", tgMsg.ForwardFromChat.Title, tgMsg.ForwardFromChat.UserName)
+	}
+	*msg += os.Getenv("FOOT_INFO")
 }
 
-func sendMiNote(client *mi.Client, v View, msg string, fileIDs []string) {
+func sendMiNote(client *mi.Client, v View, msg *string, fileIDs []string) {
 	resp, err := client.Notes().Create(notes.CreateRequest{
-		Text:       core.NewString(addFootInfo(msg)),
+		Text:       core.NewString(*msg),
 		Visibility: v.visibility,
 		LocalOnly:  v.localOnly,
 		FileIDs:    fileIDs,
@@ -175,7 +186,7 @@ func fillMsgAndFileIDs(client *mi.Client, fileIDs *[]string, msg *string, captio
 }
 
 func sendWithAttachment(client *mi.Client, v View, msg *string, fileIDs *[]string) {
-	sendMiNote(client, v, *msg, *fileIDs)
+	sendMiNote(client, v, msg, *fileIDs)
 	*fileIDs = nil
 	*msg = ""
 }
