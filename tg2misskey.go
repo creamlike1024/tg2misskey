@@ -25,14 +25,25 @@ type View struct {
 
 func main() {
 	startTime := time.Now()
-	godotenv.Load("config.env")
+	// 检查配置文件是否存在，如果不存在则直接读取环境变量
+	if _, err := os.Stat("config.env"); os.IsNotExist(err) {
+		log.Info("config.env file not found, reading from environment variables")
+		if os.Getenv("MISSKEY_URL") == "" || os.Getenv("MISSKEY_TOKEN") == "" || os.Getenv("TELEGRAM_BOT_TOKEN") == "" {
+			log.Fatal("MISSKEY_URL, MISSKEY_TOKEN and TELEGRAM_BOT_TOKEN must be set")
+		}
+	} else {
+		err := godotenv.Load("config.env")
+		if err != nil {
+			log.Fatal("Error loading config.env file")
+		}
+	}
 	// misskey
 	client, err := mi.NewClientWithOptions(mi.WithSimpleConfig(os.Getenv("MISSKEY_URL"), os.Getenv("MISSKEY_TOKEN")))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// client.LogLevel(log.DebugLevel)
+	// client.LogLevel(log.InfoLevel)
 
 	var v View
 	if os.Getenv("LOCAL_ONLY") == "true" {
@@ -95,12 +106,34 @@ func main() {
 		if (chatId != 0 && update.Message.Chat.ID != chatId) || (userId != 0 && update.Message.From.ID != userId) {
 			continue
 		}
-
+		if update.Message.IsCommand() {
+			// 处理命令
+			help := func() {
+				text := "Hello! I'm a bot that forwards Telegram messages to Misskey.\n\n"
+				text += "Send me a message or forward a message to me and I'll forward it to Misskey.\n\n"
+				tgmsg := tgbotapi.NewMessage(update.Message.Chat.ID, text)
+				tgmsg.ReplyToMessageID = update.Message.MessageID
+				_, _ = bot.Send(tgmsg)
+			}
+			switch update.Message.Command() {
+			case "start":
+				help()
+			case "help":
+				help()
+			default:
+				continue
+			}
+		}
 		if update.Message.Photo != nil {
 			for i, photo := range update.Message.Photo {
 				// 只上传最高画质的图片，即 slice 里的最后一个元素
 				if i == len(update.Message.Photo)-1 {
-					fillMsgAndFileIDs(client, &fileIDs, &msg, update.Message.Caption, ignoreError(bot.GetFileDirectURL(photo.FileID)).(string))
+					fileUrl, err := bot.GetFileDirectURL(photo.FileID)
+					if err != nil {
+						log.Error(err)
+					} else {
+						fillMsgAndFileIDs(client, &fileIDs, &msg, update.Message.Caption, fileUrl)
+					}
 				}
 			}
 			if len(updatesChannel) == 0 {
@@ -108,19 +141,34 @@ func main() {
 				sendWithAttachment(client, v, &msg, &fileIDs)
 			}
 		} else if update.Message.Video != nil {
-			fillMsgAndFileIDs(client, &fileIDs, &msg, update.Message.Caption, ignoreError(bot.GetFileDirectURL(update.Message.Video.FileID)).(string))
+			fileUrl, err := bot.GetFileDirectURL(update.Message.Document.FileID)
+			if err != nil {
+				log.Error(err)
+				continue
+			}
+			fillMsgAndFileIDs(client, &fileIDs, &msg, update.Message.Caption, fileUrl)
 			if len(updatesChannel) == 0 {
 				addFootInfo(&msg, update.Message)
 				sendWithAttachment(client, v, &msg, &fileIDs)
 			}
 		} else if update.Message.Audio != nil {
-			fillMsgAndFileIDs(client, &fileIDs, &msg, update.Message.Caption, ignoreError(bot.GetFileDirectURL(update.Message.Audio.FileID)).(string))
+			fileUrl, err := bot.GetFileDirectURL(update.Message.Document.FileID)
+			if err != nil {
+				log.Error(err)
+				continue
+			}
+			fillMsgAndFileIDs(client, &fileIDs, &msg, update.Message.Caption, fileUrl)
 			if len(updatesChannel) == 0 {
 				addFootInfo(&msg, update.Message)
 				sendWithAttachment(client, v, &msg, &fileIDs)
 			}
 		} else if update.Message.Document != nil {
-			fillMsgAndFileIDs(client, &fileIDs, &msg, update.Message.Caption, ignoreError(bot.GetFileDirectURL(update.Message.Document.FileID)).(string))
+			fileUrl, err := bot.GetFileDirectURL(update.Message.Document.FileID)
+			if err != nil {
+				log.Error(err)
+				continue
+			}
+			fillMsgAndFileIDs(client, &fileIDs, &msg, update.Message.Caption, fileUrl)
 			if len(updatesChannel) == 0 {
 				addFootInfo(&msg, update.Message)
 				sendWithAttachment(client, v, &msg, &fileIDs)
@@ -131,10 +179,6 @@ func main() {
 			sendMiNote(client, v, &msg, nil)
 		}
 	}
-}
-
-func ignoreError(val interface{}, err error) interface{} {
-	return val
 }
 
 func addFootInfo(msg *string, tgMsg *tgbotapi.Message) {
@@ -153,10 +197,10 @@ func sendMiNote(client *mi.Client, v View, msg *string, fileIDs []string) {
 		FileIDs:    fileIDs,
 	})
 	if err != nil {
-		log.Error("[Notes] Error happened: %s", err)
+		log.Errorf("[Notes] Error happened: %s", err)
 		return
 	}
-	log.Info("Note: " + resp.CreatedNote.ID + " Created")
+	log.Infof("Note: %s Created", resp.CreatedNote.ID)
 }
 
 func uploadFile(client *mi.Client, fileURL string) string {
@@ -166,7 +210,7 @@ func uploadFile(client *mi.Client, fileURL string) string {
 		FolderID: findFolder(client, os.Getenv("UPLOAD_FOLDER")),
 	})
 	if err != nil {
-		log.Error("[Drive/File/CreateFromURL] %s", err)
+		log.Errorf("[Drive/File/CreateFromURL] %s", err)
 		return ""
 	}
 	log.Info("File: " + *file.Name + " with ID: " + file.ID + " uploaded")
@@ -178,7 +222,7 @@ func findFolder(client *mi.Client, name string) string {
 		Name: name,
 	})
 	if err != nil {
-		log.Error("[Drive/Folder/Find] %s", err)
+		log.Errorf("[Drive/Folder/Find] %s", err)
 		return ""
 	}
 	for _, folder := range folderList {
@@ -194,7 +238,7 @@ func createFolder(client *mi.Client, name string) string {
 		Name: name,
 	})
 	if err != nil {
-		log.Error("[Drive/Folder/Create] %s", err)
+		log.Errorf("[Drive/Folder/Create] %s", err)
 		return ""
 	}
 	log.Info("Folder: " + folder.Name + " with ID: " + folder.ID + " created")

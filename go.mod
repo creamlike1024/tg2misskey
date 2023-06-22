@@ -1,4 +1,4 @@
-module main
+module tg2misskey
 
 go 1.19
 
