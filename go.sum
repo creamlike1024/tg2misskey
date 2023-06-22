@@ -12,8 +12,8 @@ github.com/sirupsen/logrus v1.9.3/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVs
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.7.0 h1:nwc3DEeHmmLAfoZucVR881uASk0Mfjw8xYJ99tb5CcY=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
-github.com/yitsushi/go-misskey v1.1.2 h1:44QMntaragcJ/736DUCmApujDbJaIcE2SnjEW8Lkc0M=
-github.com/yitsushi/go-misskey v1.1.2/go.mod h1:h1KZwGEqDwfGPv9qEWISZQ2yvE4A+AbkYmAqnYi35PU=
+github.com/yitsushi/go-misskey v1.1.3 h1:0gZthjrbpmqH/8HlQUbTOsxTINpmcSka/jPRr/0XUfo=
+github.com/yitsushi/go-misskey v1.1.3/go.mod h1:MH2T38iF4eTfzkNYowtiKbDMIURrzI4EjQvdaqTUljY=
 golang.org/x/net v0.11.0 h1:Gi2tvZIJyBtO9SDr1q9h5hEQCp/4L2RQ+ar0qjx2oNU=
 golang.org/x/net v0.11.0/go.mod h1:2L/ixqYpgIVXmeoSA/4Lu7BzTG4KIyPIryS4IsOd1oQ=
 golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
