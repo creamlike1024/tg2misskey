@@ -183,10 +183,21 @@ func main() {
 
 func addFootInfo(msg *string, tgMsg *tgbotapi.Message) {
 	*msg += "\n\n"
-	if tgMsg.ForwardFromChat != nil {
-		*msg += fmt.Sprintf("Forwarded from Telegram Channel \"%s\" `@%s`\n", tgMsg.ForwardFromChat.Title, tgMsg.ForwardFromChat.UserName)
+	if os.Getenv("APPEND_FORWARDED_MESSAGE_SOURCE") == "true" && tgMsg.ForwardFromChat != nil {
+		*msg += "<small>\n"
+		if tgMsg.ForwardFromChat.IsChannel() {
+			if tgMsg.ForwardFromChat.UserName != "" {
+				*msg += fmt.Sprintf("Forwarded from Telegram Channel \"%s\" `@%s`", tgMsg.ForwardFromChat.Title, tgMsg.ForwardFromChat.UserName)
+			} else {
+				*msg += fmt.Sprintf("Forwarded from Telegram Channel \"%s\"", tgMsg.ForwardFromChat.Title)
+			}
+		}
+		if tgMsg.ForwardFromChat.IsGroup() {
+			*msg += fmt.Sprintf("Forwarded from Telegram Group \"%s\"", tgMsg.ForwardFromChat.Title)
+		}
 	}
-	*msg += os.Getenv("FOOT_INFO")
+	*msg += fmt.Sprintf("\n*%s*", os.Getenv("FOOT_INFO"))
+	*msg += "\n</small>"
 }
 
 func sendMiNote(client *mi.Client, v View, msg *string, fileIDs []string) {
