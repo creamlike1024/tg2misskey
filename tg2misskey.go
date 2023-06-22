@@ -24,6 +24,7 @@ type View struct {
 }
 
 func main() {
+	startTime := time.Now()
 	godotenv.Load("config.env")
 	// misskey
 	client, err := mi.NewClientWithOptions(mi.WithSimpleConfig(os.Getenv("MISSKEY_URL"), os.Getenv("MISSKEY_TOKEN")))
@@ -61,6 +62,24 @@ func main() {
 		log.Panic(err)
 	}
 	log.Info("Authorized on account ", bot.Self.UserName)
+	var chatId int64
+	var userId int64
+	if os.Getenv("TELEGRAM_CHAT_ID") == "" {
+		chatId = 0
+	} else {
+		chatId, err = strconv.ParseInt(os.Getenv("TELEGRAM_CHAT_ID"), 10, 64)
+		if err != nil {
+			log.Fatal("Invalid TELEGRAM_CHAT_ID")
+		}
+	}
+	if os.Getenv("TELEGRAM_USER_ID") == "" {
+		userId = 0
+	} else {
+		userId, err = strconv.ParseInt(os.Getenv("TELEGRAM_USER_ID"), 10, 64)
+		if err != nil {
+			log.Fatal("Invalid TELEGRAM_USER_ID")
+		}
+	}
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 	updatesChannel := bot.GetUpdatesChan(u)
@@ -69,7 +88,11 @@ func main() {
 	var msg string
 
 	for update := range updatesChannel {
-		if update.Message == nil {
+		// 只处理启动后，不为空，且来自指定 chatId 或 userId 的消息
+		if update.Message == nil || update.Message.Time().Before(startTime) {
+			continue
+		}
+		if (chatId != 0 && update.Message.Chat.ID != chatId) || (userId != 0 && update.Message.From.ID != userId) {
 			continue
 		}
 
